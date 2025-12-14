@@ -5,7 +5,7 @@ import (
 	"sql/middleware"
 )
 
-func SetupRouter(userController *controllers.UserController) *gin.Engine {
+func SetupRouter(userController *controllers.UserController, jwtSecret []byte) *gin.Engine {
 	r := gin.Default()
 
 	r.POST("/register", userController.Register)
@@ -13,7 +13,7 @@ func SetupRouter(userController *controllers.UserController) *gin.Engine {
 
 	// 🔐 受保护路由
 	api := r.Group("/api")
-	api.Use(middleware.JWTAuth())
+	api.Use(middleware.JWTAuth(jwtSecret))
 	{
 		api.GET("/profile", userController.Profile)
 	}

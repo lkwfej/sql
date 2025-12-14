@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 	"sql/models"
@@ -21,6 +22,8 @@ func (s *UserService) Register(username, password string) (*models.User, error) 
 	// 检查用户是否已存在
 	if err := s.db.Where("username = ?", username).First(&existing).Error; err == nil {
 		return nil, errors.New("用户名已存在")
+	} else if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
 	}
 
 	// bcrypt 加密密码
@@ -46,7 +49,10 @@ func (s *UserService) Login(username, password string) (*models.User, error) {
 	var user models.User
 
 	if err := s.db.Where("username = ?", username).First(&user).Error; err != nil {
-		return nil, errors.New("用户不存在")
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("用户不存在")
+		}
+		return nil, err
 	}
 
 	// bcrypt 校验密码
@@ -54,5 +60,13 @@ func (s *UserService) Login(username, password string) (*models.User, error) {
 		return nil, errors.New("密码错误")
 	}
 
+	return &user, nil
+}
+
+func (s *UserService) GetByID(id uint) (*models.User, error) {
+	var user models.User
+	if err := s.db.First(&user, id).Error; err != nil {
+		return nil, err
+	}
 	return &user, nil
 }
