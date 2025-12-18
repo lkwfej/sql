@@ -6,8 +6,13 @@
 - **当前状态**：功能可运行，已完成注册、登录、JWT 鉴权与受保护接口。项目入口在 `main.go`，默认监听 `:9090`。
 
 ## 2. 环境与依赖
-- 数据库 DSN 固定在 `database/db.go`：`admin_sql:admin_sql@tcp(127.0.0.1:3306)/goland_demo?charset=utf8mb4&parseTime=True&loc=Local`。
-- 启动时 `InitDB` 会 AutoMigrate `models.User`（以及 `InitTables` 中的 `Role` 占位）。
+- 数据库连接改为读取环境变量（见 `config/config.go`），默认值与仓库内的 `docker-compose.yml` 保持一致：
+  - `DB_HOST=127.0.0.1`
+  - `DB_PORT=3306`
+  - `DB_USER=admin_sql`
+  - `DB_PASSWORD=admin_sql`
+  - `DB_NAME=goland_demo`
+- 启动时 `InitDB` 会带重试逻辑并 AutoMigrate `models.User`（`InitTables` 中的 `Role` 仍为占位）。
 - JWT 密钥当前为 `change_this_secret`（见 `utils/jwt.go`）；上线前需替换为安全的值并考虑使用环境变量管理。
 
 ## 3. 已有功能
@@ -17,10 +22,16 @@
 - **受保护接口 `GET /api/profile`**：在通过中间件后返回当前用户身份信息。
 
 ## 4. 启动与联调
-1. 确保 MySQL 运行且存在数据库 `goland_demo`，可用账户 `admin_sql/admin_sql`。
-2. 运行服务：`go run main.go`（默认端口 9090）。
+### 使用 docker-compose（一键启动 MySQL）
+1. 复制环境变量：`cp .env.example .env`（可按需调整端口/密码）。
+2. 启动数据库：`docker compose up -d db`（MySQL 会自动初始化库和账号，无需手动打开 phpstudy）。
+3. 启动服务：`go run main.go`（默认端口 9090，重试机制可等待数据库就绪）。
+
+### 直接使用本地 MySQL
+1. 确保本地 MySQL 正在运行，并创建数据库 `goland_demo` 与账号 `admin_sql/admin_sql`。
+2. 如有不同配置，设置对应的 `DB_*` 环境变量后执行 `go run main.go`。
 3. 接口验证示例：
-   - 注册：`POST /register`，Body `{"username":"test1","password":"123456"}`。
+   - 注册：`POST /register`，Body `{ "username":"test1", "password":"123456" }`。
    - 登录：`POST /login` → 复制返回的 Token。
    - 访问受保护接口：`GET /api/profile`，Header `Authorization: Bearer <token>`。
 
@@ -35,7 +46,7 @@
 3. **角色/权限体系**：设计 `roles`/`user_roles`，在路由层做基于角色的访问控制。
 4. **刷新 Token**：引入 `refresh_token` + `access_token` 流程，缩短 Access Token 有效期并支持刷新。
 5. **接口文档**：使用 Swagger/OpenAPI 自动生成接口说明，方便联调。
-6. **配置化密钥/数据库**：将 DSN、JWT 密钥等提取到配置或环境变量，避免硬编码。
+6. **配置化密钥/数据库**：将 JWT 密钥等敏感信息通过环境变量或配置文件管理，避免硬编码。
 
 ## 7. 交接要点
 - 核心逻辑集中于 `controllers`（请求处理）、`services`（业务逻辑）、`routers`（路由）、`middleware`（JWT 认证）、`utils`（JWT 生成/解析）。

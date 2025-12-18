@@ -2,18 +2,23 @@ package database
 
 import (
 	"fmt"
+	"log"
+	"time"
+
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"log"
+
+	"sql/config"
 	"sql/models"
 )
 
 var DB *gorm.DB
 
 func InitDB() *gorm.DB {
-	dsn := "admin_sql:admin_sql@tcp(127.0.0.1:3306)/goland_demo?charset=utf8mb4&parseTime=True&loc=Local"
+	cfg := config.LoadDBConfig()
+	dsn := cfg.DSN()
 
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	db, err := openWithRetry(dsn, 5, time.Second)
 	if err != nil {
 		log.Fatal("数据库连接失败:", err)
 	}
@@ -25,9 +30,23 @@ func InitDB() *gorm.DB {
 	DB = db
 	return db
 }
+
 func InitTables() {
 	DB.AutoMigrate(
 		&models.Role{},
 		&models.User{},
 	)
+}
+
+func openWithRetry(dsn string, attempts int, delay time.Duration) (*gorm.DB, error) {
+	var lastErr error
+	for i := 0; i < attempts; i++ {
+		db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+		if err == nil {
+			return db, nil
+		}
+		lastErr = err
+		time.Sleep(delay)
+	}
+	return nil, lastErr
 }
